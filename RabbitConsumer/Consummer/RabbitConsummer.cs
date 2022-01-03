@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using Messages;
 using RabbitMQ.Client;
@@ -8,6 +9,7 @@ using System.Threading;
 using RabbitMQ.Client.Events;
 using System.Text;
 using Newtonsoft.Json;
+using RabbitConsumer.Services;
 
 namespace RabbitConsumer.Consummer
 {
@@ -48,11 +50,21 @@ namespace RabbitConsumer.Consummer
                 var contentString = Encoding.UTF8.GetString(contentArray);
                 var message = JsonConvert.DeserializeObject<MessageRabbit>(contentString);
                 _channel.BasicAck(eventArgs.DeliveryTag, false);
+
+                NotifyUser(message);
             };
 
             _channel.BasicConsume(_config.Queue, false, consummer);
 
             return Task.CompletedTask;
+        }
+        public void NotifyUser(MessageRabbit message)
+        {
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                notificationService.NotifyUser(message.FromId, message.ToId, message.Content);
+            }
         }
     }
 }
